@@ -14,7 +14,7 @@ import java.util.Objects;
  */
 public class Account {
 
-    public enum Status { ACTIVE, FROZEN, CLOSED, DORMANT }
+    public enum Status { ACTIVE, FROZEN, CLOSED }
 
     public enum Type { CHECKING, SAVINGS, MONEY_MARKET, CREDIT }
 
@@ -119,19 +119,6 @@ public class Account {
         ledger.add(LedgerEntry.memo(accountId, "CLOSE"));
     }
 
-    public void markDormant() {
-        if (status == Status.ACTIVE) {
-            status = Status.DORMANT;
-        }
-    }
-
-    public void reactivate() {
-        if (status == Status.DORMANT) {
-            status = Status.ACTIVE;
-            touch();
-        }
-    }
-
     void credit(long amountCents, String reference) {
         if (amountCents <= 0) {
             throw new IllegalArgumentException("credit amount must be positive");
@@ -155,30 +142,6 @@ public class Account {
         touch();
     }
 
-    void placeHold(long amountCents, String reference) {
-        if (amountCents <= 0) {
-            throw new IllegalArgumentException("hold amount must be positive");
-        }
-        if (balanceCents - holdCents < amountCents) {
-            throw new InsufficientFundsException(accountId, amountCents, balanceCents - holdCents);
-        }
-        holdCents += amountCents;
-        ledger.add(LedgerEntry.memo(accountId, "HOLD " + amountCents + " " + reference));
-    }
-
-    void releaseHold(long amountCents, String reference) {
-        if (amountCents > holdCents) {
-            throw new IllegalArgumentException("release exceeds outstanding holds");
-        }
-        holdCents -= amountCents;
-        ledger.add(LedgerEntry.memo(accountId, "RELEASE " + amountCents + " " + reference));
-    }
-
-    void resetDailyCounters() {
-        dailyWithdrawalCount = 0;
-        dailyWithdrawalCents = 0;
-    }
-
     public List<LedgerEntry> getLedger() {
         return Collections.unmodifiableList(ledger);
     }
@@ -187,8 +150,4 @@ public class Account {
         lastActivityAt = Instant.now();
     }
 
-    @Override
-    public String toString() {
-        return "Account{" + accountId + ", " + type + ", " + currency + ", balance=" + getBalance() + ", status=" + status + "}";
-    }
 }

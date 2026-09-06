@@ -3,8 +3,6 @@ package com.bofa.transaction;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -73,9 +71,6 @@ public class AuditLogger {
         }
     }
 
-    private static final DateTimeFormatter EXPORT_FORMAT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneOffset.UTC);
-
     private final List<Entry> entries = new ArrayList<>();
     private long nextSequence = 1;
     private String lastHash = "GENESIS";
@@ -113,26 +108,6 @@ public class AuditLogger {
 
     public int size() {
         return entries.size();
-    }
-
-    public List<Entry> findBySubject(String subjectId) {
-        List<Entry> result = new ArrayList<>();
-        for (Entry e : entries) {
-            if (e.getSubjectId().equals(subjectId)) {
-                result.add(e);
-            }
-        }
-        return result;
-    }
-
-    public List<Entry> findBySeverity(Severity minimum) {
-        List<Entry> result = new ArrayList<>();
-        for (Entry e : entries) {
-            if (e.getSeverity().ordinal() >= minimum.ordinal()) {
-                result.add(e);
-            }
-        }
-        return result;
     }
 
     /** Verifies that every entry's hash chain is intact. */
@@ -183,21 +158,6 @@ public class AuditLogger {
             sb.append(Character.isDigit(value.charAt(i)) || Character.isLetter(value.charAt(i)) ? '*' : value.charAt(i));
         }
         sb.append(value.substring(value.length() - keep));
-        return sb.toString();
-    }
-
-    public String export() {
-        StringBuilder sb = new StringBuilder();
-        for (Entry e : entries) {
-            sb.append(e.getSequence()).append(',')
-              .append(EXPORT_FORMAT.format(e.getTimestamp())).append(',')
-              .append(e.getActor()).append(',')
-              .append(e.getAction()).append(',')
-              .append(e.getSubjectId()).append(',')
-              .append(e.getSeverity()).append(',')
-              .append(e.getHash())
-              .append('\n');
-        }
         return sb.toString();
     }
 

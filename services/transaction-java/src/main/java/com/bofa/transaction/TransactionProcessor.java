@@ -162,16 +162,6 @@ public class TransactionProcessor {
         return tx;
     }
 
-    public Transaction flag(String transactionId, String reason) {
-        Transaction tx = transactions.get(transactionId);
-        if (tx == null) {
-            throw new IllegalArgumentException("unknown transaction " + transactionId);
-        }
-        tx.markFlagged(reason);
-        auditLogger.critical(SYSTEM_ACTOR, "TRANSACTION_FLAGGED", transactionId, Map.of("reason", reason));
-        return tx;
-    }
-
     public List<Transaction> historyFor(String accountId) {
         List<Transaction> result = new ArrayList<>();
         for (Transaction tx : transactions.values()) {
@@ -181,16 +171,6 @@ public class TransactionProcessor {
         }
         result.sort((a, b) -> a.getCreatedAt().compareTo(b.getCreatedAt()));
         return result;
-    }
-
-    public long postedVolumeCents(String accountId) {
-        long total = 0;
-        for (Transaction tx : historyFor(accountId)) {
-            if (tx.getStatus() == Transaction.Status.POSTED) {
-                total += tx.getAmountCents();
-            }
-        }
-        return total;
     }
 
     private void record(Transaction tx) {

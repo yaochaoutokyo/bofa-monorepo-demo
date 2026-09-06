@@ -8,3 +8,4 @@ def test_accepts_well_formed_email():
 def test_accepts_known_state_and_zip():
     assert is_valid_state("ca") is True
     assert is_valid_zip("94105") is True
+

@@ -11,8 +11,6 @@ public class FeeCalculator {
     public static final long INTERNATIONAL_WIRE_FEE_CENTS = 45_00L;
     public static final long OVERDRAFT_FEE_CENTS = 35_00L;
     public static final long EXCESS_WITHDRAWAL_FEE_CENTS = 10_00L;
-    public static final long MONTHLY_MAINTENANCE_FEE_CENTS = 12_00L;
-    public static final long MAINTENANCE_WAIVER_BALANCE_CENTS = 1_500_00L;
     public static final BigDecimal FX_MARKUP_RATE = new BigDecimal("0.03");
     public static final BigDecimal CASH_ADVANCE_RATE = new BigDecimal("0.05");
 
@@ -79,19 +77,6 @@ public class FeeCalculator {
         return OVERDRAFT_FEE_CENTS;
     }
 
-    public long monthlyMaintenanceFee(Account account, long averageDailyBalanceCents, boolean hasDirectDeposit) {
-        if (account.getType() == Account.Type.CREDIT) {
-            return 0L;
-        }
-        if (hasDirectDeposit) {
-            return 0L;
-        }
-        if (averageDailyBalanceCents >= MAINTENANCE_WAIVER_BALANCE_CENTS) {
-            return 0L;
-        }
-        return MONTHLY_MAINTENANCE_FEE_CENTS;
-    }
-
     long fxMarkup(long amountCents) {
         BigDecimal amount = BigDecimal.valueOf(amountCents, 2);
         BigDecimal markup = amount.multiply(FX_MARKUP_RATE).setScale(2, RoundingMode.DOWN);
@@ -108,13 +93,5 @@ public class FeeCalculator {
     boolean isOutOfNetwork(Transaction tx) {
         String memo = tx.getMemo();
         return memo != null && memo.toUpperCase().contains("OON");
-    }
-
-    public long applyFeeCap(long feeCents, long amountCents) {
-        long cap = amountCents / 10;
-        if (cap <= 0) {
-            return feeCents;
-        }
-        return Math.min(feeCents, cap);
     }
 }

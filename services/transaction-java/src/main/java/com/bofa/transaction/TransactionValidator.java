@@ -130,16 +130,4 @@ public class TransactionValidator {
         return tx.getAmountCents() >= CTR_REPORTING_THRESHOLD_CENTS
                 && (tx.getChannel() == Transaction.Channel.BRANCH || tx.getChannel() == Transaction.Channel.ATM);
     }
-
-    public boolean isStructuringSuspect(List<Transaction> recent) {
-        long total = 0;
-        int nearThreshold = 0;
-        for (Transaction tx : recent) {
-            total += tx.getAmountCents();
-            if (tx.getAmountCents() >= 9_000_00L && tx.getAmountCents() < CTR_REPORTING_THRESHOLD_CENTS) {
-                nearThreshold++;
-            }
-        }
-        return nearThreshold >= 2 && total >= CTR_REPORTING_THRESHOLD_CENTS;
-    }
 }
