@@ -8,7 +8,6 @@ export interface PasswordPolicy {
   requireDigit: boolean;
   requireSymbol: boolean;
   maxRepeatedChars: number;
-  historyDepth: number;
   maxAgeDays: number;
 }
 
@@ -20,28 +19,15 @@ export const DEFAULT_POLICY: PasswordPolicy = {
   requireDigit: true,
   requireSymbol: true,
   maxRepeatedChars: 3,
-  historyDepth: 12,
   maxAgeDays: 90,
 };
 
-const COMMON_PASSWORDS = new Set([
-  'password',
-  'password1',
-  'password123',
-  '123456789012',
-  'qwertyuiop12',
-  'letmein12345',
-  'welcome12345',
-  'bankofamerica',
-  'bofa12345678',
-]);
-
+const COMMON_PASSWORDS = new Set(['password1234', 'bankofamerica', 'bofa12345678', 'letmein12345']);
 const HASH_ITERATIONS = 1000;
 
 export interface PasswordCheck {
   valid: boolean;
   violations: string[];
-  strength: 'WEAK' | 'FAIR' | 'STRONG';
 }
 
 export function generateSalt(bytes = 16): string {
@@ -68,14 +54,10 @@ export function verifyPassword(password: string, salt: string, expectedHash: str
   return timingSafeEqual(actual, expected);
 }
 
-export function validatePassword(
-  password: string,
-  policy: PasswordPolicy = DEFAULT_POLICY,
-  username?: string,
-): PasswordCheck {
+export function validatePassword(password: string, policy: PasswordPolicy = DEFAULT_POLICY, username?: string): PasswordCheck {
   const violations: string[] = [];
   if (password === undefined || password === null) {
-    return { valid: false, violations: ['password is required'], strength: 'WEAK' };
+    return { valid: false, violations: ['password is required'] };
   }
   if (password.length < policy.minLength) {
     violations.push(`must be at least ${policy.minLength} characters`);
@@ -104,14 +86,7 @@ export function validatePassword(
   if (username && password.toLowerCase().includes(username.toLowerCase())) {
     violations.push('must not contain the username');
   }
-  if (isSequential(password)) {
-    violations.push('must not be a simple sequence');
-  }
-  return {
-    valid: violations.length === 0,
-    violations,
-    strength: scoreStrength(password),
-  };
+  return { valid: violations.length === 0, violations };
 }
 
 export function hasRepeatedRun(value: string, maxRun: number): boolean {
@@ -129,59 +104,7 @@ export function hasRepeatedRun(value: string, maxRun: number): boolean {
   return false;
 }
 
-export function isSequential(value: string): boolean {
-  if (value.length < 4) {
-    return false;
-  }
-  let ascending = true;
-  let descending = true;
-  for (let i = 1; i < value.length; i++) {
-    const diff = value.charCodeAt(i) - value.charCodeAt(i - 1);
-    if (diff !== 1) ascending = false;
-    if (diff !== -1) descending = false;
-  }
-  return ascending || descending;
-}
-
-export function scoreStrength(password: string): 'WEAK' | 'FAIR' | 'STRONG' {
-  let score = 0;
-  if (password.length >= 12) score++;
-  if (password.length >= 16) score++;
-  if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
-  if (/\d/.test(password)) score++;
-  if (/[^A-Za-z0-9]/.test(password)) score++;
-  if (new Set(password).size >= password.length * 0.7) score++;
-  if (score <= 2) return 'WEAK';
-  if (score <= 4) return 'FAIR';
-  return 'STRONG';
-}
-
 export function isPasswordExpired(passwordChangedAt: number, now: number, policy: PasswordPolicy = DEFAULT_POLICY): boolean {
-  const ageMs = now - passwordChangedAt;
   const maxAgeMs = policy.maxAgeDays * 24 * 60 * 60 * 1000;
-  return ageMs > maxAgeMs;
-}
-
-export function isInHistory(candidateHash: string, history: string[], policy: PasswordPolicy = DEFAULT_POLICY): boolean {
-  const recent = history.slice(-policy.historyDepth);
-  return recent.includes(candidateHash);
-}
-
-export function generateTemporaryPassword(length = 16): string {
-  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const lower = 'abcdefghijkmnopqrstuvwxyz';
-  const digits = '23456789';
-  const symbols = '!@#$%^&*';
-  const all = upper + lower + digits + symbols;
-  const bytes = randomBytes(length);
-  const chars = [
-    upper[bytes[0] % upper.length],
-    lower[bytes[1] % lower.length],
-    digits[bytes[2] % digits.length],
-    symbols[bytes[3] % symbols.length],
-  ];
-  for (let i = 4; i < length; i++) {
-    chars.push(all[bytes[i] % all.length]);
-  }
-  return chars.join('');
+  return now - passwordChangedAt > maxAgeMs;
 }

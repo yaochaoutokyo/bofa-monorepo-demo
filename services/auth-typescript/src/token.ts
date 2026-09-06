@@ -1,9 +1,15 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
-import { Role, TokenPayload } from './types';
 
 export const DEFAULT_ACCESS_TTL_SECONDS = 15 * 60;
-export const DEFAULT_REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const CLOCK_SKEW_SECONDS = 30;
+
+export interface TokenPayload {
+  sub: string;
+  roles: string[];
+  iat: number;
+  exp: number;
+  jti: string;
+}
 
 export interface TokenVerification {
   valid: boolean;
@@ -24,48 +30,23 @@ function base64UrlDecode(input: string): Buffer {
 export class TokenService {
   private readonly revokedJtis = new Set<string>();
 
-  constructor(
-    private readonly secret: string,
-    private readonly issuer = 'bofa-auth',
-  ) {
+  constructor(private readonly secret: string) {
     if (!secret || secret.length < 32) {
       throw new Error('token secret must be at least 32 characters');
     }
   }
 
-  issue(
-    userId: string,
-    roles: Role[],
-    sessionId: string,
-    nowSeconds: number,
-    ttlSeconds = DEFAULT_ACCESS_TTL_SECONDS,
-  ): string {
+  issue(userId: string, roles: string[], nowSeconds: number, ttlSeconds = DEFAULT_ACCESS_TTL_SECONDS): string {
     if (!userId) {
       throw new Error('userId is required');
     }
     if (ttlSeconds <= 0) {
       throw new Error('ttl must be positive');
     }
-    const payload: TokenPayload = {
-      sub: userId,
-      roles,
-      iat: nowSeconds,
-      exp: nowSeconds + ttlSeconds,
-      jti: randomUUID(),
-      sessionId,
-    };
-    return this.encode(payload);
-  }
-
-  issueRefresh(userId: string, sessionId: string, nowSeconds: number): string {
-    return this.issue(userId, [], sessionId, nowSeconds, DEFAULT_REFRESH_TTL_SECONDS);
-  }
-
-  encode(payload: TokenPayload): string {
-    const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT', iss: this.issuer }));
+    const payload: TokenPayload = { sub: userId, roles, iat: nowSeconds, exp: nowSeconds + ttlSeconds, jti: randomUUID() };
+    const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
     const body = base64UrlEncode(JSON.stringify(payload));
-    const signature = this.sign(`${header}.${body}`);
-    return `${header}.${body}.${signature}`;
+    return `${header}.${body}.${this.sign(`${header}.${body}`)}`;
   }
 
   verify(token: string, nowSeconds: number): TokenVerification {
@@ -77,8 +58,7 @@ export class TokenService {
       return { valid: false, reason: 'malformed token' };
     }
     const [header, body, signature] = parts;
-    const expected = this.sign(`${header}.${body}`);
-    if (!constantTimeEquals(signature, expected)) {
+    if (!constantTimeEquals(signature, this.sign(`${header}.${body}`))) {
       return { valid: false, reason: 'invalid signature' };
     }
     let payload: TokenPayload;
@@ -116,39 +96,6 @@ export class TokenService {
       return true;
     } catch {
       return false;
-    }
-  }
-
-  isRevoked(jti: string): boolean {
-    return this.revokedJtis.has(jti);
-  }
-
-  refresh(refreshToken: string, roles: Role[], nowSeconds: number): string | null {
-    const result = this.verify(refreshToken, nowSeconds);
-    if (!result.valid || !result.payload) {
-      return null;
-    }
-    this.revoke(refreshToken);
-    return this.issue(result.payload.sub, roles, result.payload.sessionId, nowSeconds);
-  }
-
-  remainingSeconds(token: string, nowSeconds: number): number {
-    const result = this.verify(token, nowSeconds);
-    if (!result.valid || !result.payload) {
-      return 0;
-    }
-    return Math.max(0, result.payload.exp - nowSeconds);
-  }
-
-  decodeUnsafe(token: string): TokenPayload | null {
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      return null;
-    }
-    try {
-      return JSON.parse(base64UrlDecode(parts[1]).toString('utf8')) as TokenPayload;
-    } catch {
-      return null;
     }
   }
 

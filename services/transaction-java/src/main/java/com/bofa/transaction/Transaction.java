@@ -9,7 +9,7 @@ public class Transaction {
 
     public enum Type { DEPOSIT, WITHDRAWAL, TRANSFER, FEE, INTEREST, REVERSAL, WIRE }
 
-    public enum Status { PENDING, POSTED, DECLINED, REVERSED, FLAGGED }
+    public enum Status { PENDING, POSTED, DECLINED, REVERSED }
 
     public enum Channel { BRANCH, ATM, ONLINE, MOBILE, WIRE, ACH }
 
@@ -76,21 +76,12 @@ public class Transaction {
         this.status = Status.REVERSED;
     }
 
-    void markFlagged(String reason) {
-        this.status = Status.FLAGGED;
-        this.declineReason = reason;
-    }
-
     public boolean isTerminal() {
         return status == Status.POSTED || status == Status.DECLINED || status == Status.REVERSED;
     }
 
     public boolean involvesAccount(String accountId) {
         return accountId != null && (accountId.equals(sourceAccountId) || accountId.equals(targetAccountId));
-    }
-
-    public long totalDebitCents() {
-        return amountCents + feeCents;
     }
 
     public static final class Builder {
@@ -122,8 +113,4 @@ public class Transaction {
         }
     }
 
-    @Override
-    public String toString() {
-        return "Transaction{" + transactionId + " " + type + " " + amountCents + " " + currency + " " + status + "}";
-    }
 }

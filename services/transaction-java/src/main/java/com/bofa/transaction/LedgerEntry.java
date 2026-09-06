@@ -63,17 +63,6 @@ public final class LedgerEntry {
         }
     }
 
-    public String toCsvLine() {
-        return String.join(",",
-                entryId,
-                accountId,
-                kind.name(),
-                Long.toString(amountCents),
-                Long.toString(runningBalanceCents),
-                reference.replace(",", ";"),
-                postedAt.toString());
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -87,8 +76,4 @@ public final class LedgerEntry {
         return entryId.hashCode();
     }
 
-    @Override
-    public String toString() {
-        return kind + " " + amountCents + " (" + reference + ")";
-    }
 }

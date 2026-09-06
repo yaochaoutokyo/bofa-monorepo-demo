@@ -6,11 +6,12 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Iterable
+from typing import Any
 
 from .masking import mask_record
 
 GENESIS_HASH = "0" * 64
+OUTCOMES = ("SUCCESS", "FAILURE", "WARNING")
 
 
 @dataclass(frozen=True)
@@ -25,38 +26,14 @@ class AuditEntry:
     previous_hash: str = GENESIS_HASH
     hash: str = ""
 
-    def canonical(self) -> str:
-        payload = {
-            "sequence": self.sequence,
-            "timestamp": self.timestamp,
-            "actor": self.actor,
-            "action": self.action,
-            "subject": self.subject,
-            "outcome": self.outcome,
-            "details": self.details,
-            "previous_hash": self.previous_hash,
-        }
-        return json.dumps(payload, sort_keys=True, separators=(",", ":"))
-
     def compute_hash(self) -> str:
-        return hashlib.sha256(self.canonical().encode("utf-8")).hexdigest()
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "sequence": self.sequence,
-            "timestamp": self.timestamp,
-            "actor": self.actor,
-            "action": self.action,
-            "subject": self.subject,
-            "outcome": self.outcome,
-            "details": self.details,
-            "previous_hash": self.previous_hash,
-            "hash": self.hash,
-        }
+        payload = {k: v for k, v in self.__dict__.items() if k != "hash"}
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def format_timestamp(moment: datetime | None = None) -> str:
-    """Return an ISO-8601 UTC timestamp with millisecond precision and a Z suffix."""
+    """ISO-8601 UTC timestamp with millisecond precision and a Z suffix."""
     if moment is None:
         moment = datetime.now(timezone.utc)
     if moment.tzinfo is None:
@@ -73,8 +50,6 @@ def parse_timestamp(value: str) -> datetime:
 
 
 class AuditLog:
-    RETENTION_YEARS = 7
-
     def __init__(self, clock=None):
         self._entries: list[AuditEntry] = []
         self._clock = clock or (lambda: datetime.now(timezone.utc))
@@ -82,21 +57,13 @@ class AuditLog:
     def __len__(self) -> int:
         return len(self._entries)
 
-    @property
-    def entries(self) -> tuple[AuditEntry, ...]:
-        return tuple(self._entries)
-
-    def _last_hash(self) -> str:
-        return self._entries[-1].hash if self._entries else GENESIS_HASH
-
     def record(self, actor: str, action: str, subject: str, outcome: str, details: dict[str, Any] | None = None) -> AuditEntry:
         if not actor:
             raise ValueError("actor is required")
         if not action:
             raise ValueError("action is required")
-        if outcome not in ("SUCCESS", "FAILURE", "WARNING"):
+        if outcome not in OUTCOMES:
             raise ValueError(f"unknown outcome {outcome!r}")
-        safe_details = mask_record(details or {})
         entry = AuditEntry(
             sequence=len(self._entries) + 1,
             timestamp=format_timestamp(self._clock()),
@@ -104,8 +71,8 @@ class AuditLog:
             action=action,
             subject=subject or "-",
             outcome=outcome,
-            details=safe_details,
-            previous_hash=self._last_hash(),
+            details=mask_record(details or {}),
+            previous_hash=self._entries[-1].hash if self._entries else GENESIS_HASH,
         )
         sealed = AuditEntry(**{**entry.__dict__, "hash": entry.compute_hash()})
         self._entries.append(sealed)
@@ -116,9 +83,6 @@ class AuditLog:
 
     def failure(self, actor: str, action: str, subject: str, **details: Any) -> AuditEntry:
         return self.record(actor, action, subject, "FAILURE", details)
-
-    def warning(self, actor: str, action: str, subject: str, **details: Any) -> AuditEntry:
-        return self.record(actor, action, subject, "WARNING", details)
 
     def verify_chain(self) -> bool:
         previous = GENESIS_HASH
@@ -132,51 +96,13 @@ class AuditLog:
             previous = entry.hash
         return True
 
-    def for_subject(self, subject: str) -> list[AuditEntry]:
-        return [e for e in self._entries if e.subject == subject]
-
-    def for_actor(self, actor: str) -> list[AuditEntry]:
-        return [e for e in self._entries if e.actor == actor]
-
     def failures(self) -> list[AuditEntry]:
         return [e for e in self._entries if e.outcome == "FAILURE"]
 
     def between(self, start: datetime, end: datetime) -> list[AuditEntry]:
         if end < start:
             raise ValueError("end precedes start")
-        result = []
-        for entry in self._entries:
-            moment = parse_timestamp(entry.timestamp)
-            if start < moment < end:
-                result.append(entry)
-        return result
-
-    def counts_by_action(self) -> dict[str, int]:
-        counts: dict[str, int] = {}
-        for entry in self._entries:
-            counts[entry.action] = counts.get(entry.action, 0) + 1
-        return counts
+        return [e for e in self._entries if start < parse_timestamp(e.timestamp) < end]
 
     def export_ndjson(self) -> str:
-        return "\n".join(json.dumps(e.to_dict(), sort_keys=True) for e in self._entries)
-
-    def export_csv(self) -> str:
-        header = "sequence,timestamp,actor,action,subject,outcome,hash"
-        rows = [header]
-        for e in self._entries:
-            rows.append(",".join([str(e.sequence), e.timestamp, e.actor, e.action, e.subject, e.outcome, e.hash]))
-        return "\n".join(rows)
-
-    @classmethod
-    def from_entries(cls, entries: Iterable[dict[str, Any]]) -> "AuditLog":
-        log = cls()
-        for raw in entries:
-            log._entries.append(AuditEntry(**raw))
-        if not log.verify_chain():
-            raise ValueError("imported audit log fails chain verification")
-        return log
-
-    def is_past_retention(self, entry: AuditEntry, now: datetime | None = None) -> bool:
-        now = now or self._clock()
-        recorded = parse_timestamp(entry.timestamp)
-        return (now.year - recorded.year) > self.RETENTION_YEARS
+        return "\n".join(json.dumps(e.__dict__, sort_keys=True) for e in self._entries)
