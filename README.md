@@ -30,7 +30,7 @@ Regulatory framing used by the services (paraphrased):
 |---|---|---|---|---|
 | `transaction-java` | JUnit 5 + JaCoCo (Maven) | 2 | **29.0%** (257 / 886 lines) | ~0.1s tests, ~2s `mvn test` |
 | `auth-typescript` | Jest + ts-jest, built-in coverage | 2 | **28.2%** lines (14.1% branches) | ~1.5s |
-| `validation-python` | pytest + pytest-cov (branch mode) | 407 | **100.0%** (lines and branches) | ~0.6s |
+| `validation-python` | pytest + pytest-cov (branch mode) | 9 | **32.5%** | ~0.2s |
 
 Production source size (excluding tests and config): Java 12 files / 1732 lines (886 executable),
 TypeScript 11 files / 1572 lines, Python 9 files / 1477 lines.
