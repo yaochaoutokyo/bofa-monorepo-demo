@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "validation-service"
+version = "1.0.0"
+description = "Data validation and audit logging service"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8.0", "pytest-cov>=5.0"]
+
+[tool.setuptools.packages.find]
+include = ["validation_service*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["validation_service"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+precision = 1

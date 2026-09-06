@@ -1,0 +1,41 @@
+# Seeded defects (do not share with the demo audience)
+
+Every defect below lives in a code path the baseline test suite does not exercise. Edge-case tests written during the demo should surface them.
+
+- `services/transaction-java/src/main/java/com/bofa/transaction/TransactionProcessor.java` — the original fee is never refunded on reversal
+- `services/transaction-java/src/main/java/com/bofa/transaction/TransactionProcessor.java` — declined transactions are not written to the audit log, violating the audit-trail requirement
+- `services/transaction-java/src/main/java/com/bofa/transaction/CurrencyConverter.java` — target scale uses the source currency's minor units, so USD->JPY is off by 100x
+- `services/transaction-java/src/main/java/com/bofa/transaction/FeeCalculator.java` — fee should be waived when the overdraft is under $5 (Reg E de minimis)
+- `services/transaction-java/src/main/java/com/bofa/transaction/FeeCalculator.java` — RoundingMode.DOWN under-collects; schedule requires HALF_UP to the cent
+- `services/transaction-java/src/main/java/com/bofa/transaction/Account.java` — unchecked addition can silently overflow into a negative balance
+- `services/transaction-java/src/main/java/com/bofa/transaction/InterestCalculator.java` — truncation toward zero instead of banker's rounding systematically under-pays customers
+- `services/transaction-java/src/main/java/com/bofa/transaction/AuditLogger.java` — account numbers are written to the audit log unmasked
+- `services/transaction-java/src/main/java/com/bofa/transaction/TransactionValidator.java` — zero and negative amounts should be rejected; only the upper bound is enforced
+- `services/transaction-java/src/main/java/com/bofa/transaction/TransactionValidator.java` — should be >= so the 7th withdrawal is blocked (Reg D style limit)
+- `services/validation-python/validation_service/validators.py` — TLD is not required and consecutive dots are allowed ("a@b" and "a..b@c.com" pass)
+- `services/validation-python/validation_service/validators.py` — area 000/666/9xx and group/serial of all zeros are not rejected
+- `services/validation-python/validation_service/validators.py` — a missing account number is treated as valid
+- `services/validation-python/validation_service/validators.py` — weights are in the wrong order (should be 3,7,1 repeating)
+- `services/validation-python/validation_service/validators.py` — boundary error - an amount exactly at the maximum should be allowed (>=)
+- `services/validation-python/validation_service/audit.py` — naive datetimes are assumed to already be UTC rather than local time,
+- `services/validation-python/validation_service/audit.py` — the window is exclusive on both ends; entries at exactly `end` are dropped
+- `services/validation-python/validation_service/schema.py` — max_length check is off by one (allows max_length + 1 characters)
+- `services/validation-python/validation_service/masking.py` — only 16-digit card numbers are found; 15-digit Amex numbers leak
+- `services/validation-python/validation_service/masking.py` — short account numbers are returned completely unmasked
+- `services/validation-python/validation_service/normalizers.py` — 4-digit ZIPs that lost a leading zero are padded on the right, not the left
+- `services/validation-python/validation_service/formatters.py` — ROUND_HALF_UP disagrees with the ledger's banker's rounding for x.xx5 amounts
+- `services/validation-python/validation_service/sanitizers.py` — off-by-one keeps max_length + 1 characters
+- `services/validation-python/validation_service/rules.py` — should flag when two or more near-threshold deposits sum past CTR; requires three
+- `services/validation-python/validation_service/rules.py` — an ID that expires today is accepted; should be rejected when exp <= today
+- `services/auth-typescript/src/mfa.ts` — codes are not validated as exactly 6 digits, so "12345" or "abcdef" reach
+- `services/auth-typescript/src/token.ts` — off-by-one on expiry - a token whose exp equals the current second is
+- `services/auth-typescript/src/session.ts` — idle timeout is compared against createdAt instead of lastSeenAt, so an
+- `services/auth-typescript/src/roles.ts` — should be strictly greater; an admin can mint another admin without
+- `services/auth-typescript/src/lockout.ts` — lockout only triggers when failures strictly exceed maxAttempts,
+- `services/auth-typescript/src/lockout.ts` — lockoutCount is not reset on successful login, so a customer who was
+- `services/auth-typescript/src/auth.ts` — any authenticated caller can disable MFA; the ADMIN check is missing
+- `services/auth-typescript/src/auth.ts` — pattern allows consecutive dots and a missing TLD ("a@b" passes)
+- `services/auth-typescript/src/password.ts` — boundary error - a password exactly maxLength long is rejected
+- `services/auth-typescript/src/pii.ts` — only matches 16-digit cards; 15-digit Amex and 14-digit Diners are missed
+- `services/auth-typescript/src/pii.ts` — dashed SSNs are not normalised, so "123-45-6789" masks to "***-**-6789"
+- `services/auth-typescript/src/pii.ts` — an empty string passes validation
