@@ -1,8 +1,0 @@
-Metadata-Version: 2.4
-Name: validation-service
-Version: 1.0.0
-Summary: Data validation and audit logging service
-Requires-Python: >=3.10
-Provides-Extra: test
-Requires-Dist: pytest>=8.0; extra == "test"
-Requires-Dist: pytest-cov>=5.0; extra == "test"
